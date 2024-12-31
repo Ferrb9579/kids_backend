@@ -3,41 +3,95 @@ import prisma from '../prisma.js';
 import { parseISO } from 'date-fns';
 
 export const listAttendanceSessions = async (req, res) => {
-  const sessions = await prisma.attendanceSession.findMany({
-    include: { event: true },
-  });
-  return res.json(sessions);
+  try {
+    const sessions = await prisma.attendanceSession.findMany({
+      include: { event: true },
+    });
+    return res.status(200).json({
+      success: true,
+      data: sessions,
+      message: 'Attendance sessions retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve attendance sessions.',
+    });
+  }
 };
 
 export const createAttendanceSession = async (req, res) => {
   try {
     const { eventId, sessionDate } = req.body;
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: 'eventId is required.',
+      });
+    }
+
     const newSession = await prisma.attendanceSession.create({
       data: {
         eventId,
         sessionDate: sessionDate ? parseISO(sessionDate) : new Date(),
       },
     });
-    return res.status(201).json(newSession);
+
+    return res.status(201).json({
+      success: true,
+      data: newSession,
+      message: 'Attendance session created successfully.',
+    });
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    return res.status(400).json({
+      success: false,
+      message: 'Failed to create attendance session.',
+    });
   }
 };
 
 export const getAttendanceSession = async (req, res) => {
-  const id = parseInt(req.params.id);
-  const session = await prisma.attendanceSession.findUnique({
-    where: { id },
-    include: { event: true },
-  });
-  if (!session) {
-    return res.status(404).json({ detail: 'Attendance session not found.' });
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid session ID provided.',
+    });
   }
-  return res.json(session);
+
+  try {
+    const session = await prisma.attendanceSession.findUnique({
+      where: { id },
+      include: { event: true },
+    });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance session not found.',
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      data: session,
+      message: 'Attendance session retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve attendance session.',
+    });
+  }
 };
 
 export const updateAttendanceSession = async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid session ID provided.',
+    });
+  }
+
   const { eventId, sessionDate } = req.body;
   try {
     const updated = await prisma.attendanceSession.update({
@@ -47,72 +101,125 @@ export const updateAttendanceSession = async (req, res) => {
         sessionDate: sessionDate ? parseISO(sessionDate) : undefined,
       },
     });
-    return res.json(updated);
+    return res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Attendance session updated successfully.',
+    });
   } catch (error) {
-    return res.status(404).json({ detail: 'Attendance session not found.' });
+    return res.status(404).json({
+      success: false,
+      message: 'Attendance session not found or update failed.',
+    });
   }
 };
 
 export const deleteAttendanceSession = async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid session ID provided.',
+    });
+  }
+
   try {
     await prisma.attendanceSession.delete({ where: { id } });
-    return res.json({ detail: 'Session deleted successfully.' });
+    return res.status(200).json({
+      success: true,
+      message: 'Attendance session deleted successfully.',
+    });
   } catch (error) {
-    return res.status(404).json({ detail: 'Attendance session not found.' });
+    return res.status(404).json({
+      success: false,
+      message: 'Attendance session not found or deletion failed.',
+    });
   }
 };
 
-/**
- * GET /attendance-sessions/by-event/:eventId
- */
 export const attendanceSessionsByEvent = async (req, res) => {
-  const eventId = parseInt(req.params.eventId);
-  const sessions = await prisma.attendanceSession.findMany({
-    where: { eventId },
-  });
-  return res.json(sessions);
+  const eventId = parseInt(req.params.eventId, 10);
+  if (isNaN(eventId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid event ID provided.',
+    });
+  }
+
+  try {
+    const sessions = await prisma.attendanceSession.findMany({
+      where: { eventId },
+    });
+    return res.status(200).json({
+      success: true,
+      data: sessions,
+      message: 'Attendance sessions for event retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve sessions by event.',
+    });
+  }
 };
 
-/**
- * POST /attendance-sessions/:id/mark-attendance
- * Mark bulk attendance for a session
- */
 export const markBulkAttendance = async (req, res) => {
-  const id = parseInt(req.params.id);
-  const session = await prisma.attendanceSession.findUnique({
-    where: { id },
-  });
-  if (!session) {
-    return res.status(404).json({ detail: 'Session not found.' });
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid session ID provided.',
+    });
   }
 
-  const { attendance_data } = req.body;
-  if (!Array.isArray(attendance_data)) {
-    return res
-      .status(400)
-      .json({ detail: 'attendance_data must be an array.' });
-  }
-
-  const createdRecords = [];
-  for (let att of attendance_data) {
-    const { userId, status, location } = att;
-    // Try creating. If it fails because of unique constraint, just skip or update.
-    try {
-      const newAtt = await prisma.attendance.create({
-        data: {
-          attendanceSessionId: id,
-          userId,
-          status: status || 'present',
-          location: location || '',
-        },
+  try {
+    const session = await prisma.attendanceSession.findUnique({
+      where: { id },
+    });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found.',
       });
-      createdRecords.push(newAtt);
-    } catch (e) {
-      // For simplicity, skip duplicates. 
-      // Or you can do an upsert if you want to update existing attendance.
     }
-  }
 
-  return res.status(201).json(createdRecords);
+    const { attendance_data } = req.body;
+    if (!Array.isArray(attendance_data)) {
+      return res.status(400).json({
+        success: false,
+        message: 'attendance_data must be an array.',
+      });
+    }
+
+    const createdRecords = [];
+    for (let att of attendance_data) {
+      const { userId, status, location } = att;
+      if (!userId) continue; // skip if userId not provided
+
+      try {
+        const newAtt = await prisma.attendance.create({
+          data: {
+            attendanceSessionId: id,
+            userId,
+            status: status || 'present',
+            location: location || '',
+          },
+        });
+        createdRecords.push(newAtt);
+      } catch (e) {
+        // Skip or handle duplicates, etc.
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: createdRecords,
+      message: 'Bulk attendance marked successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark bulk attendance.',
+    });
+  }
 };

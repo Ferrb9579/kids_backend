@@ -11,15 +11,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'some-super-secret';
 
 /**
  * EXTERNAL AUTH CONTROLLER
- * Example: Using an external Node server to validate credentials,
- * then upserting the user locally, and returning a JWT.
  */
 export const externalAuth = async (req, res) => {
   console.log('EXTERNAL AUTH CONTROLLER');
   const { register_number, password } = req.body;
   if (!register_number || !password) {
     return res.status(400).json({
-      error: 'register_number and password are required.',
+      success: false,
+      message: 'register_number and password are required.',
     });
   }
 
@@ -32,14 +31,18 @@ export const externalAuth = async (req, res) => {
     });
 
     if (response.status !== 200) {
-      return res.status(401).json({ error: 'Invalid credentials.' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials.',
+      });
     }
 
     const { email, role = 'student' } = response.data;
     if (!email) {
-      return res
-        .status(500)
-        .json({ error: 'No email returned from external server.' });
+      return res.status(500).json({
+        success: false,
+        message: 'No email returned from external server.',
+      });
     }
 
     // Upsert user in local DB
@@ -66,18 +69,23 @@ export const externalAuth = async (req, res) => {
     );
 
     return res.status(200).json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        kmail: user.kmail,
-        role: user.role,
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          kmail: user.kmail,
+          role: user.role,
+        },
       },
+      message: 'User authenticated successfully.',
     });
   } catch (err) {
     console.error(err.message);
     return res.status(503).json({
-      error: `Failed to connect to external auth server: ${err.message}`,
+      success: false,
+      message: 'Failed to connect to external auth server.',
     });
   }
 };
@@ -98,102 +106,210 @@ export const listUsers = async (req, res) => {
     };
   }
 
-  const users = await prisma.user.findMany({ where: whereClause });
-  return res.json(users);
+  try {
+    const users = await prisma.user.findMany({ where: whereClause });
+    return res.status(200).json({
+      success: true,
+      data: users,
+      message: 'Users retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve users.',
+    });
+  }
 };
 
 /**
  * POST /users
- * Create a new user
  */
 export const createUser = async (req, res) => {
-  // Check for validation errors
+  // Check for validation errors if using express-validator
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    // Return first error or all errors if you like
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed.',
+      errors: errors.array(),
+    });
   }
 
   try {
     const { kid, username, kmail, role } = req.body;
+    if (!kid || !username || !kmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'kid, username, and kmail are required.',
+      });
+    }
+
     const newUser = await prisma.user.create({
       data: { kid, username, kmail, role },
     });
-    return res.status(201).json(newUser);
+    return res.status(201).json({
+      success: true,
+      data: newUser,
+      message: 'User created successfully.',
+    });
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    return res.status(400).json({
+      success: false,
+      message: 'Failed to create user.',
+    });
   }
 };
 
-/**
- * GET /users/:id
- * PATCH/PUT /users/:id
- * DELETE /users/:id
- */
 export const getUser = async (req, res) => {
-  const userId = parseInt(req.params.id);
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return res.status(404).json({ detail: 'User not found.' });
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid user ID provided.',
+    });
   }
-  return res.json(user);
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      data: user,
+      message: 'User retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve user.',
+    });
+  }
 };
 
 export const updateUser = async (req, res) => {
-  const userId = parseInt(req.params.id);
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid user ID provided.',
+    });
+  }
+
   const { kid, username, kmail, role } = req.body;
   try {
     const updated = await prisma.user.update({
       where: { id: userId },
       data: { kid, username, kmail, role },
     });
-    return res.json(updated);
+    return res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'User updated successfully.',
+    });
   } catch (error) {
-    return res.status(404).json({ detail: 'User not found.' });
+    return res.status(404).json({
+      success: false,
+      message: 'User not found or update failed.',
+    });
   }
 };
 
 export const deleteUser = async (req, res) => {
-  const userId = parseInt(req.params.id);
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid user ID provided.',
+    });
+  }
+
   try {
     await prisma.user.delete({ where: { id: userId } });
-    return res.json({ detail: 'User deleted successfully.' });
+    return res.status(200).json({
+      success: true,
+      message: 'User deleted successfully.',
+    });
   } catch (error) {
-    return res.status(404).json({ detail: 'User not found.' });
+    return res.status(404).json({
+      success: false,
+      message: 'User not found or deletion failed.',
+    });
   }
 };
 
-/**
- * GET /users/:id/events
- */
 export const userEvents = async (req, res) => {
-  const userId = parseInt(req.params.id);
-  const events = await prisma.event.findMany({
-    where: { createdById: userId },
-  });
-  return res.json(events);
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid user ID provided.',
+    });
+  }
+
+  try {
+    const events = await prisma.event.findMany({
+      where: { createdById: userId },
+    });
+    return res.status(200).json({
+      success: true,
+      data: events,
+      message: 'Events for user retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve user events.',
+    });
+  }
 };
 
-/**
- * GET /users/:id/attendance
- */
 export const userAttendance = async (req, res) => {
-  const userId = parseInt(req.params.id);
-  const attendanceRecords = await prisma.attendance.findMany({
-    where: { userId },
-    include: {
-      attendanceSession: true,
-    },
-  });
-  return res.json(attendanceRecords);
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid user ID provided.',
+    });
+  }
+
+  try {
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: { userId },
+      include: {
+        attendanceSession: true,
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      data: attendanceRecords,
+      message: 'Attendance records for user retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve user attendance.',
+    });
+  }
 };
 
-/**
- * GET /users/faculty
- */
 export const facultyList = async (req, res) => {
-  const faculties = await prisma.user.findMany({
-    where: { role: 'faculty' },
-  });
-  return res.json(faculties);
+  try {
+    const faculties = await prisma.user.findMany({
+      where: { role: 'faculty' },
+    });
+    return res.status(200).json({
+      success: true,
+      data: faculties,
+      message: 'Faculty list retrieved successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve faculty list.',
+    });
+  }
 };

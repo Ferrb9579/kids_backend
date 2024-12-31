@@ -5,10 +5,12 @@ import { body } from 'express-validator';
 export const createUserValidator = [
     body('kid')
         .trim()
+        .escape()
         .isLength({ min: 1 })
         .withMessage('kid is required'),
     body('username')
         .trim()
+        .escape()
         .isLength({ min: 1 })
         .withMessage('username is required'),
     body('kmail')

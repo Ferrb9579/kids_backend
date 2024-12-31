@@ -3,7 +3,6 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { globalErrorHandler } from './middlewares/errorHandler.js';
 import router from './routes/index.js';
 
 dotenv.config();
