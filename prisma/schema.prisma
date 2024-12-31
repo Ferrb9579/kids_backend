@@ -1,0 +1,110 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // e.g. postgresql://postgres:root@localhost:5432/kids
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  kid        String   @unique
+  username   String
+  kmail      String   @unique
+  role       String   @default("student")
+  createdAt  DateTime @default(now())
+  // Relations
+  createdEvents Event[]
+  eventRegistrations EventRegistration[]
+  attendances       Attendance[]
+  userPermissions   UserPermission[]
+  // If you still want to store tokens in DB, uncomment and define relation
+  // accessTokens      AccessToken[]
+}
+
+model Permission {
+  id         Int      @id @default(autoincrement())
+  name       String
+  codename   String
+  createdAt  DateTime @default(now())
+  userPermissions UserPermission[]
+}
+
+model UserPermission {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  permissionId Int
+  createdAt  DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([userId, permissionId])
+}
+
+model Event {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  slots       Int?
+  startTime   DateTime?
+  endTime     DateTime?
+  isPublic    Boolean   @default(true)
+  createdById Int
+  createdAt   DateTime  @default(now())
+
+  createdBy   User              @relation(fields: [createdById], references: [id])
+  registrations EventRegistration[]
+  attendanceSessions AttendanceSession[]
+}
+
+model EventRegistration {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  eventId   Int
+  status    String   @default("confirmed")
+  createdAt DateTime @default(now())
+
+  user   User  @relation(fields: [userId], references: [id])
+  event  Event @relation(fields: [eventId], references: [id])
+
+  @@unique([userId, eventId])
+}
+
+model AttendanceSession {
+  id        Int         @id @default(autoincrement())
+  eventId   Int
+  sessionDate DateTime
+  createdAt DateTime    @default(now())
+
+  event       Event        @relation(fields: [eventId], references: [id])
+  attendances Attendance[]
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  attendanceSessionId Int
+  location  String?
+  status    String   @default("present")
+  createdAt DateTime @default(now())
+
+  user              User              @relation(fields: [userId], references: [id])
+  attendanceSession AttendanceSession @relation(fields: [attendanceSessionId], references: [id])
+
+  @@unique([userId, attendanceSessionId])
+}
+
+// If you still want to store access tokens in the DB (instead of JWT):
+// model AccessToken {
+//   id        Int      @id @default(autoincrement())
+//   userId    Int
+//   token     String   @unique
+//   createdAt DateTime @default(now())
+//   expiresAt DateTime
+
+//   user User @relation(fields: [userId], references: [id])
+// }
