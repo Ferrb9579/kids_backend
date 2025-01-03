@@ -1,14 +1,49 @@
-// src/controllers/attendance.controller.js
 import prisma from '../prisma.js';
 
 export const listAttendance = async (req, res) => {
+  // Pagination & filtering
+  const { page = 1, limit = 10, userId, status } = req.query;
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+
+  const skip = (pageNum - 1) * limitNum;
+  const take = limitNum;
+
+  const whereClause = {};
+
+  // Optional filter by userId
+  if (userId) {
+    const parsedId = parseInt(userId, 10);
+    if (!isNaN(parsedId)) {
+      whereClause.userId = parsedId;
+    }
+  }
+
+  // Optional filter by status
+  if (status) {
+    whereClause.status = status;
+  }
+
   try {
-    const records = await prisma.attendance.findMany({
-      include: { user: true, attendanceSession: true },
-    });
+    const [records, totalCount] = await Promise.all([
+      prisma.attendance.findMany({
+        where: whereClause,
+        include: { user: true, attendanceSession: true },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.attendance.count({ where: whereClause }),
+    ]);
+
     return res.status(200).json({
       success: true,
-      data: records,
+      data: {
+        records,
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalCount,
+      },
       message: 'Attendance records retrieved successfully.',
     });
   } catch (error) {

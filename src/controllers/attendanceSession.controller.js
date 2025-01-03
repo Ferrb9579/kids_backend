@@ -1,6 +1,5 @@
-// src/controllers/attendanceSession.controller.js
 import prisma from '../prisma.js';
-import { parseISO } from 'date-fns';
+// Replaced parseISO usage with new Date(...) plus validation.
 
 export const listAttendanceSessions = async (req, res) => {
   try {
@@ -30,10 +29,18 @@ export const createAttendanceSession = async (req, res) => {
       });
     }
 
+    // Validate sessionDate
+    if (sessionDate && isNaN(Date.parse(sessionDate))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sessionDate format. Please provide a valid date string.',
+      });
+    }
+
     const newSession = await prisma.attendanceSession.create({
       data: {
         eventId,
-        sessionDate: sessionDate ? parseISO(sessionDate) : new Date(),
+        sessionDate: sessionDate ? new Date(sessionDate) : new Date(),
       },
     });
 
@@ -93,12 +100,20 @@ export const updateAttendanceSession = async (req, res) => {
   }
 
   const { eventId, sessionDate } = req.body;
+  // Validate sessionDate
+  if (sessionDate && isNaN(Date.parse(sessionDate))) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid sessionDate format. Please provide a valid date string.',
+    });
+  }
+
   try {
     const updated = await prisma.attendanceSession.update({
       where: { id },
       data: {
         eventId,
-        sessionDate: sessionDate ? parseISO(sessionDate) : undefined,
+        sessionDate: sessionDate ? new Date(sessionDate) : undefined,
       },
     });
     return res.status(200).json({

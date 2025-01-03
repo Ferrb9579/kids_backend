@@ -1,5 +1,3 @@
-// src/controllers/user.controller.js
-
 import { validationResult } from 'express-validator';
 import prisma from '../prisma.js';
 import axios from 'axios';
@@ -93,24 +91,47 @@ export const externalAuth = async (req, res) => {
 /**
  * GET /users
  * GET /users?username=foo
+ * Optional query parameters for pagination/filtering:
+ *  - page (default: 1)
+ *  - limit (default: 10)
+ *  - username (partial match)
  */
 export const listUsers = async (req, res) => {
-  const { username } = req.query;
+  const { username, page = 1, limit = 10 } = req.query;
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+
+  // Basic pagination calculation
+  const skip = (pageNum - 1) * limitNum;
+  const take = limitNum;
+
   let whereClause = {};
   if (username) {
-    whereClause = {
-      username: {
-        contains: username,
-        mode: 'insensitive',
-      },
+    whereClause.username = {
+      contains: username,
+      mode: 'insensitive',
     };
   }
 
   try {
-    const users = await prisma.user.findMany({ where: whereClause });
+    const [users, totalCount] = await Promise.all([
+      prisma.user.findMany({
+        where: whereClause,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.user.count({ where: whereClause }),
+    ]);
+
     return res.status(200).json({
       success: true,
-      data: users,
+      data: {
+        users,
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalCount,
+      },
       message: 'Users retrieved successfully.',
     });
   } catch (error) {
@@ -121,44 +142,7 @@ export const listUsers = async (req, res) => {
   }
 };
 
-/**
- * POST /users
- */
-export const createUser = async (req, res) => {
-  // Check for validation errors if using express-validator
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed.',
-      errors: errors.array(),
-    });
-  }
-
-  try {
-    const { kid, username, kmail, role } = req.body;
-    if (!kid || !username || !kmail) {
-      return res.status(400).json({
-        success: false,
-        message: 'kid, username, and kmail are required.',
-      });
-    }
-
-    const newUser = await prisma.user.create({
-      data: { kid, username, kmail, role },
-    });
-    return res.status(201).json({
-      success: true,
-      data: newUser,
-      message: 'User created successfully.',
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: 'Failed to create user.',
-    });
-  }
-};
+// NOTE: The createUser function has been removed per your request
 
 export const getUser = async (req, res) => {
   const userId = parseInt(req.params.id, 10);

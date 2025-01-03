@@ -3,7 +3,6 @@ import express from 'express';
 import {
   externalAuth,
   listUsers,
-  createUser,
   getUser,
   updateUser,
   deleteUser,
@@ -21,9 +20,6 @@ router.post('/external-auth', externalAuth);
 
 // Authenticated routes
 router.get('/', authenticateToken, listUsers);
-
-// Create user (with validation + auth)
-router.post('/', authenticateToken, createUserValidator, createUser);
 
 router.get('/faculty', authenticateToken, facultyList);
 

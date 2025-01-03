@@ -1,13 +1,52 @@
-// src/controllers/event.controller.js
 import prisma from '../prisma.js';
-import { parseISO, isAfter } from 'date-fns';
+import { isAfter } from 'date-fns';
 
+/**
+ * GET /events
+ * Optional query parameters for pagination/filtering:
+ *  - page (default: 1)
+ *  - limit (default: 10)
+ *  - search (partial match on name/description)
+ */
 export const listEvents = async (req, res) => {
+  const { page = 1, limit = 10, search } = req.query;
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+
+  // Basic pagination calculation
+  const skip = (pageNum - 1) * limitNum;
+  const take = limitNum;
+
+  // Optional text search
+  let whereClause = {};
+  if (search) {
+    whereClause = {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ],
+    };
+  }
+
   try {
-    const events = await prisma.event.findMany();
+    const [events, totalCount] = await Promise.all([
+      prisma.event.findMany({
+        where: whereClause,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.event.count({ where: whereClause }),
+    ]);
+
     return res.status(200).json({
       success: true,
-      data: events,
+      data: {
+        events,
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalCount,
+      },
       message: 'Events retrieved successfully.',
     });
   } catch (error) {
@@ -29,9 +68,22 @@ export const createEvent = async (req, res) => {
       });
     }
 
-    // Validate start/end time if needed
+    // Validate date fields
+    if (startTime && isNaN(Date.parse(startTime))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid startTime format. Please provide a valid date string.',
+      });
+    }
+    if (endTime && isNaN(Date.parse(endTime))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid endTime format. Please provide a valid date string.',
+      });
+    }
+
     if (startTime && endTime) {
-      if (!isAfter(parseISO(endTime), parseISO(startTime))) {
+      if (!isAfter(new Date(endTime), new Date(startTime))) {
         return res.status(400).json({
           success: false,
           message: 'endTime must be after startTime.',
@@ -44,13 +96,13 @@ export const createEvent = async (req, res) => {
         name,
         description,
         slots: slots ? Number(slots) : null,
-        startTime: startTime ? parseISO(startTime) : null,
-        endTime: endTime ? parseISO(endTime) : null,
+        startTime: startTime ? new Date(startTime) : null,
+        endTime: endTime ? new Date(endTime) : null,
         isPublic: isPublic !== undefined ? isPublic : true,
-        // Assuming you have user info in req.user
         createdById: req.user?.id || null,
       },
     });
+
     return res.status(201).json({
       success: true,
       data: event,
@@ -105,6 +157,28 @@ export const updateEvent = async (req, res) => {
 
   const { name, description, slots, startTime, endTime, isPublic } = req.body;
 
+  // Validate date fields
+  if (startTime && isNaN(Date.parse(startTime))) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid startTime format. Please provide a valid date string.',
+    });
+  }
+  if (endTime && isNaN(Date.parse(endTime))) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid endTime format. Please provide a valid date string.',
+    });
+  }
+  if (startTime && endTime) {
+    if (!isAfter(new Date(endTime), new Date(startTime))) {
+      return res.status(400).json({
+        success: false,
+        message: 'endTime must be after startTime.',
+      });
+    }
+  }
+
   try {
     const updatedEvent = await prisma.event.update({
       where: { id: eventId },
@@ -112,8 +186,8 @@ export const updateEvent = async (req, res) => {
         name,
         description,
         slots: slots ? Number(slots) : undefined,
-        startTime: startTime ? parseISO(startTime) : undefined,
-        endTime: endTime ? parseISO(endTime) : undefined,
+        startTime: startTime ? new Date(startTime) : undefined,
+        endTime: endTime ? new Date(endTime) : undefined,
         isPublic,
       },
     });
