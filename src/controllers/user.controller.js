@@ -19,11 +19,11 @@ export const externalAuth = async (req, res) => {
       message: 'register_number and password are required.',
     });
   }
-
+  let response;
   try {
     // Example external Node.js server
     const nodeServerUrl = 'http://localhost:4000/auth';
-    const response = await axios.post(nodeServerUrl, {
+    response = await axios.post(nodeServerUrl, {
       register_number,
       password,
     });
@@ -80,6 +80,13 @@ export const externalAuth = async (req, res) => {
       message: 'User authenticated successfully.',
     });
   } catch (err) {
+    console.log(err)
+    if (err.response && err.response.status === 401) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials.',
+      });
+    }
     console.error(err.message);
     return res.status(503).json({
       success: false,

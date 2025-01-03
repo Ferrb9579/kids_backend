@@ -10,24 +10,31 @@ import {
   userAttendance,
   facultyList
 } from '../controllers/user.controller.js';
-import { createUserValidator } from '../validators/user.validators.js';
+import {
+  externalAuthValidator,
+  userIdParamValidator,
+  updateUserValidator,
+  usernameQueryValidator
+} from '../validators/user.validators.js';
+import { validateFields } from '../middlewares/validateFields.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// Public route for external-auth
-router.post('/external-auth', externalAuth);
+// Public route for external-auth with validations
+router.post('/external-auth', externalAuthValidator, validateFields, externalAuth);
 
 // Authenticated routes
-router.get('/', authenticateToken, listUsers);
-
+router.get('/', authenticateToken, usernameQueryValidator, validateFields, listUsers);
 router.get('/faculty', authenticateToken, facultyList);
 
-router.get('/:id', authenticateToken, getUser);
-router.patch('/:id', authenticateToken, updateUser);
-router.delete('/:id', authenticateToken, deleteUser);
+// Routes with :id parameter
+router.get('/:id', authenticateToken, userIdParamValidator, validateFields, getUser);
+router.patch('/:id', authenticateToken, userIdParamValidator, updateUserValidator, validateFields, updateUser);
+router.delete('/:id', authenticateToken, userIdParamValidator, validateFields, deleteUser);
 
-router.get('/:id/events', authenticateToken, userEvents);
-router.get('/:id/attendance', authenticateToken, userAttendance);
+// Nested routes
+router.get('/:id/events', authenticateToken, userIdParamValidator, validateFields, userEvents);
+router.get('/:id/attendance', authenticateToken, userIdParamValidator, validateFields, userAttendance);
 
 export default router;

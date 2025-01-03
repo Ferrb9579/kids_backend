@@ -1,5 +1,6 @@
 // src/routes/event.routes.js
 import express from 'express';
+import { param } from 'express-validator'; // Optional if not using directly
 import {
   listEvents,
   createEvent,
@@ -10,23 +11,40 @@ import {
   eventRegistrations,
   facultyEvents
 } from '../controllers/event.controller.js';
-
+import {
+  eventIdParamValidator,
+  createEventValidator,
+  updateEventValidator,
+  pageQueryValidator,
+  facultyIdParamValidator // Import the new validator
+} from '../validators/event.validators.js';
+import { validateFields } from '../middlewares/validateFields.js';
 import { authenticateToken } from '../middlewares/auth.js';
-import { isEventCreator } from '../middlewares/isEventCreator.js';
 
 const router = express.Router();
 
-router.get('/', authenticateToken, listEvents);
-router.post('/', authenticateToken, createEvent);
+// List events with optional pagination and search
+router.get('/', authenticateToken, pageQueryValidator, validateFields, listEvents);
+
+// Create a new event
+router.post('/', authenticateToken, createEventValidator, validateFields, createEvent);
+
+// Get upcoming events
 router.get('/upcoming', authenticateToken, upcomingEvents);
 
-// For faculty-limited routes if needed, you can add the isFaculty middleware
+// Routes with :id parameter
+router.get('/:id', authenticateToken, eventIdParamValidator, validateFields, getEvent);
+router.patch('/:id', authenticateToken, eventIdParamValidator, updateEventValidator, validateFields, updateEvent);
+router.delete('/:id', authenticateToken, eventIdParamValidator, validateFields, deleteEvent);
 
-router.get('/:id', authenticateToken, getEvent);
-router.patch('/:id', authenticateToken, updateEvent);
-router.delete('/:id', authenticateToken, deleteEvent);
+// Get event registrations by eventId
+router.get('/:id/registrations', authenticateToken, eventIdParamValidator, validateFields, eventRegistrations);
 
-router.get('/:id/registrations', authenticateToken, eventRegistrations);
-router.get('/by-faculty/:facultyId', authenticateToken, facultyEvents);
+// Get events by facultyId using the new validator
+router.get('/by-faculty/:facultyId', authenticateToken,
+  facultyIdParamValidator, // Use the pre-defined validator
+  validateFields,
+  facultyEvents
+);
 
 export default router;

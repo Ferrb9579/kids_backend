@@ -7,6 +7,7 @@ import eventRoutes from './event.routes.js';
 import eventRegistrationRoutes from './eventRegistration.routes.js';
 import attendanceSessionRoutes from './attendanceSession.routes.js';
 import attendanceRoutes from './attendance.routes.js';
+import notificationRoutes from './notification.routes.js'; // Import notification routes
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use('/events', eventRoutes);
 router.use('/event-registrations', eventRegistrationRoutes);
 router.use('/attendance-sessions', attendanceSessionRoutes);
 router.use('/attendance', attendanceRoutes);
+router.use('/notifications', notificationRoutes); // Register the notification routes
 
 export default router;

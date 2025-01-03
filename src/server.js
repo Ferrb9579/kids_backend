@@ -1,28 +1,33 @@
+// server.js
 import express from 'express';
+import http from 'http';
+import { WebSocketServer } from 'ws';
 import helmet from 'helmet';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import router from './routes/index.js';
 import rateLimit from 'express-rate-limit';
 
-dotenv.config();
+import router from './routes/index.js'; // Your main router
 
+dotenv.config();
 const app = express();
+
+// Security middlewares
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Rate Limiting Middleware
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100,           // limit each IP to 100 requests per window
+  windowMs: 60 * 1000,
+  max: 100,
   message: {
     error: 'Too many requests, please try again later.',
   },
 });
 app.use(limiter);
 
-// Middleware for logging requests and responses with data
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`Request: ${req.method} ${req.url}`, req.body);
 
@@ -35,24 +40,15 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && 'body' in err) {
-    // JSON parse error
-    return res.status(400).json({ error: 'Invalid JSON payload' });
-  }
-  // If not recognized, pass to default error handler
-  next();
-});
-
-// Main Router
+// Main router
 app.use('/api', router);
 
-// Health check or root
+// Health check
 app.get('/', (req, res) => {
-  res.send('Node.js + Prisma API is up and running!');
+  res.send('Node.js + Prisma API with WebSocket is up and running!');
 });
 
-// Fallback error handler for uncaught errors in routes/controllers
+// Fallback error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   if (!res.headersSent) {
@@ -64,7 +60,35 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
+// Create an HTTP server from the Express app
+const server = http.createServer(app);
+
+// ----- WEB SOCKET SETUP -----
+export const wss = new WebSocketServer({ server });
+
+// Store connected clients
+const connectedClients = new Set();
+
+// On new WebSocket connection
+wss.on('connection', (ws) => {
+  console.log('New client connected via WebSocket');
+  connectedClients.add(ws);
+
+  // Optional: handle messages from clients if needed
+  ws.on('message', (msg) => {
+    console.log('Message from client:', msg.toString());
+    // You could handle client-sent messages here
+  });
+
+  // On close, remove the client from the set
+  ws.on('close', () => {
+    console.log('Client disconnected');
+    connectedClients.delete(ws);
+  });
+});
+
+// Start the server
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
