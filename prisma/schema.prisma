@@ -97,14 +97,3 @@ model Attendance {
 
   @@unique([userId, attendanceSessionId])
 }
-
-// If you still want to store access tokens in the DB (instead of JWT):
-// model AccessToken {
-//   id        Int      @id @default(autoincrement())
-//   userId    Int
-//   token     String   @unique
-//   createdAt DateTime @default(now())
-//   expiresAt DateTime
-
-//   user User @relation(fields: [userId], references: [id])
-// }
