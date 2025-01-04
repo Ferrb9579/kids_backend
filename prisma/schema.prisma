@@ -1,8 +1,6 @@
-// prisma/schema.prisma
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") // e.g. postgresql://postgres:root@localhost:5432/kids
+  url      = env("DATABASE_URL") // e.g., postgresql://postgres:root@localhost:5432/kids
 }
 
 generator client {
@@ -10,90 +8,119 @@ generator client {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  kid        String   @unique
-  username   String
-  kmail      String   @unique
-  role       String   @default("student")
-  createdAt  DateTime @default(now())
+  id              Int           @id @default(autoincrement())
+  kid             String        @unique
+  username        String
+  kmail           String        @unique
+  role            String        @default("student")
+  userRoleBitmask Int           @default(0) // Bitmask for user roles
+  createdAt       DateTime      @default(now())
+
   // Relations
-  createdEvents Event[]
-  eventRegistrations EventRegistration[]
-  attendances       Attendance[]
-  userPermissions   UserPermission[]
-  // If you still want to store tokens in DB, uncomment and define relation
-  // accessTokens      AccessToken[]
+  createdEvents      Event[]
+  eventRegistrations  EventRegistration[]
+  attendances         Attendance[]
+  userRoles           UserRoleAssignment[]
+  eventRoleAssignments EventRoleAssignment[]
 }
 
-model Permission {
+model UserRole {
   id         Int      @id @default(autoincrement())
-  name       String
-  codename   String
+  name       String   @unique
+  bitmask    Int      // Bitmask representing permissions
   createdAt  DateTime @default(now())
-  userPermissions UserPermission[]
+
+  // Relations
+  userRoleAssignments UserRoleAssignment[]
 }
 
-model UserPermission {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  permissionId Int
+model EventRole {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  bitmask    Int      // Bitmask representing permissions
   createdAt  DateTime @default(now())
 
-  user       User       @relation(fields: [userId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  // Relations
+  eventRoleAssignments EventRoleAssignment[]
+}
 
-  @@unique([userId, permissionId])
+model UserRoleAssignment {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  roleId     Int
+  createdAt  DateTime @default(now())
+
+  user       User      @relation(fields: [userId], references: [id])
+  role       UserRole  @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+}
+
+model EventRoleAssignment {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  eventId   Int
+  roleId    Int
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  event     Event     @relation(fields: [eventId], references: [id])
+  role      EventRole @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, eventId, roleId])
 }
 
 model Event {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  slots       Int?
-  startTime   DateTime?
-  endTime     DateTime?
-  isPublic    Boolean   @default(true)
-  createdById Int
-  createdAt   DateTime  @default(now())
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  description         String?
+  slots               Int?
+  startTime           DateTime?
+  endTime             DateTime?
+  isPublic            Boolean               @default(true)
+  createdById         Int
+  eventRoleBitmask    Int                   @default(0) // Bitmask for event roles
+  createdAt           DateTime              @default(now())
 
-  createdBy   User              @relation(fields: [createdById], references: [id])
-  registrations EventRegistration[]
-  attendanceSessions AttendanceSession[]
+  createdBy           User                  @relation(fields: [createdById], references: [id])
+  registrations       EventRegistration[]
+  attendanceSessions  AttendanceSession[]
+  eventRoleAssignments EventRoleAssignment[]
 }
 
 model EventRegistration {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  eventId   Int
-  status    String   @default("confirmed")
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  eventId     Int
+  status      String   @default("confirmed")
+  createdAt   DateTime @default(now())
 
-  user   User  @relation(fields: [userId], references: [id])
-  event  Event @relation(fields: [eventId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+  event       Event    @relation(fields: [eventId], references: [id])
 
   @@unique([userId, eventId])
 }
 
 model AttendanceSession {
-  id        Int         @id @default(autoincrement())
-  eventId   Int
-  sessionDate DateTime
-  createdAt DateTime    @default(now())
+  id              Int         @id @default(autoincrement())
+  eventId         Int
+  sessionDate     DateTime
+  createdAt       DateTime    @default(now())
 
-  event       Event        @relation(fields: [eventId], references: [id])
-  attendances Attendance[]
+  event           Event        @relation(fields: [eventId], references: [id])
+  attendances     Attendance[]
 }
 
 model Attendance {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  attendanceSessionId Int
-  location  String?
-  status    String   @default("present")
-  createdAt DateTime @default(now())
+  id                   Int               @id @default(autoincrement())
+  userId               Int
+  attendanceSessionId  Int
+  location             String?
+  status               String            @default("present")
+  createdAt            DateTime          @default(now())
 
-  user              User              @relation(fields: [userId], references: [id])
-  attendanceSession AttendanceSession @relation(fields: [attendanceSessionId], references: [id])
+  user                 User              @relation(fields: [userId], references: [id])
+  attendanceSession    AttendanceSession @relation(fields: [attendanceSessionId], references: [id])
 
   @@unique([userId, attendanceSessionId])
 }

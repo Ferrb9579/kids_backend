@@ -1,6 +1,5 @@
 // src/routes/event.routes.js
 import express from 'express';
-import { param } from 'express-validator'; // Optional if not using directly
 import {
   listEvents,
   createEvent,
@@ -9,42 +8,49 @@ import {
   deleteEvent,
   upcomingEvents,
   eventRegistrations,
-  facultyEvents
+  facultyEvents,
+  assignEventRoles
 } from '../controllers/event.controller.js';
 import {
   eventIdParamValidator,
   createEventValidator,
   updateEventValidator,
   pageQueryValidator,
-  facultyIdParamValidator // Import the new validator
+  facultyIdParamValidator
 } from '../validators/event.validators.js';
 import { validateFields } from '../middlewares/validateFields.js';
 import { authenticateToken } from '../middlewares/auth.js';
+import { authorize } from '../middlewares/authorize.js';
+import { CREATE_EVENT, MODIFY_EVENTS, DELETE_EVENTS, VIEW_EVENTS, SEND_NOTIFICATIONS } from '../permissions.js';
 
 const router = express.Router();
 
 // List events with optional pagination and search
-router.get('/', authenticateToken, pageQueryValidator, validateFields, listEvents);
+router.get('/', authenticateToken, authorize(VIEW_EVENTS), pageQueryValidator, validateFields, listEvents);
 
 // Create a new event
-router.post('/', authenticateToken, createEventValidator, validateFields, createEvent);
+router.post('/', authenticateToken, authorize(CREATE_EVENT), createEventValidator, validateFields, createEvent);
 
 // Get upcoming events
-router.get('/upcoming', authenticateToken, upcomingEvents);
+router.get('/upcoming', authenticateToken, authorize(VIEW_EVENTS), upcomingEvents);
 
 // Routes with :id parameter
-router.get('/:id', authenticateToken, eventIdParamValidator, validateFields, getEvent);
-router.patch('/:id', authenticateToken, eventIdParamValidator, updateEventValidator, validateFields, updateEvent);
-router.delete('/:id', authenticateToken, eventIdParamValidator, validateFields, deleteEvent);
+router.get('/:id', authenticateToken, authorize(VIEW_EVENTS), eventIdParamValidator, validateFields, getEvent);
+router.patch('/:id', authenticateToken, authorize(MODIFY_EVENTS), eventIdParamValidator, updateEventValidator, validateFields, updateEvent);
+router.delete('/:id', authenticateToken, authorize(DELETE_EVENTS), eventIdParamValidator, validateFields, deleteEvent);
 
 // Get event registrations by eventId
-router.get('/:id/registrations', authenticateToken, eventIdParamValidator, validateFields, eventRegistrations);
+router.get('/:id/registrations', authenticateToken, authorize(VIEW_EVENTS), eventIdParamValidator, validateFields, eventRegistrations);
 
-// Get events by facultyId using the new validator
+// Get events by facultyId
 router.get('/by-faculty/:facultyId', authenticateToken,
-  facultyIdParamValidator, // Use the pre-defined validator
+  facultyIdParamValidator,
+  authorize(VIEW_EVENTS),
   validateFields,
   facultyEvents
 );
+
+// Assign event roles
+// router.post('/:id/assign-roles', authenticateToken, authorize(SEND_NOTIFICATIONS), assignEventRoles);
 
 export default router;

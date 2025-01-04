@@ -1,15 +1,12 @@
-import { validationResult } from 'express-validator';
+// src/controllers/user.controller.js
 import prisma from '../prisma.js';
-import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import axios from 'axios';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'some-super-secret';
 
-/**
- * EXTERNAL AUTH CONTROLLER
- */
 export const externalAuth = async (req, res) => {
   console.log('EXTERNAL AUTH CONTROLLER');
   const { register_number, password } = req.body;
@@ -21,7 +18,6 @@ export const externalAuth = async (req, res) => {
   }
   let response;
   try {
-    // Example external Node.js server
     const nodeServerUrl = 'http://localhost:4000/auth';
     response = await axios.post(nodeServerUrl, {
       register_number,
@@ -43,7 +39,6 @@ export const externalAuth = async (req, res) => {
       });
     }
 
-    // Upsert user in local DB
     const user = await prisma.user.upsert({
       where: { kmail: email },
       update: { role },
@@ -55,7 +50,6 @@ export const externalAuth = async (req, res) => {
       },
     });
 
-    // Create JWT
     const token = jwt.sign(
       {
         id: user.id,
@@ -80,7 +74,7 @@ export const externalAuth = async (req, res) => {
       message: 'User authenticated successfully.',
     });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     if (err.response && err.response.status === 401) {
       return res.status(401).json({
         success: false,
@@ -95,20 +89,11 @@ export const externalAuth = async (req, res) => {
   }
 };
 
-/**
- * GET /users
- * GET /users?username=foo
- * Optional query parameters for pagination/filtering:
- *  - page (default: 1)
- *  - limit (default: 10)
- *  - username (partial match)
- */
 export const listUsers = async (req, res) => {
   const { username, page = 1, limit = 10 } = req.query;
   const pageNum = Number(page) || 1;
   const limitNum = Number(limit) || 10;
 
-  // Basic pagination calculation
   const skip = (pageNum - 1) * limitNum;
   const take = limitNum;
 
@@ -148,8 +133,6 @@ export const listUsers = async (req, res) => {
     });
   }
 };
-
-// NOTE: The createUser function has been removed per your request
 
 export const getUser = async (req, res) => {
   const userId = parseInt(req.params.id, 10);
@@ -301,6 +284,52 @@ export const facultyList = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve faculty list.',
+    });
+  }
+};
+
+export const assignUserRoles = async (req, res) => {
+  const { roleIds } = req.body; // roleIds: array of UserRole IDs
+  const userId = parseInt(req.params.id, 10);
+
+  if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid user ID provided.',
+    });
+  }
+
+  if (!Array.isArray(roleIds)) {
+    return res.status(400).json({
+      success: false,
+      message: 'roleIds must be an array of UserRole IDs.',
+    });
+  }
+
+  try {
+    // Delete existing roles
+    await prisma.userRoleAssignment.deleteMany({
+      where: { userId },
+    });
+
+    // Assign new roles
+    const assignments = roleIds.map((roleId) => ({
+      userId,
+      roleId,
+    }));
+
+    await prisma.userRoleAssignment.createMany({
+      data: assignments,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'User roles updated successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to assign user roles.',
     });
   }
 };

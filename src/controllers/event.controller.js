@@ -1,23 +1,15 @@
+// src/controllers/event.controller.js
 import prisma from '../prisma.js';
 import { isAfter } from 'date-fns';
 
-/**
- * GET /events
- * Optional query parameters for pagination/filtering:
- *  - page (default: 1)
- *  - limit (default: 10)
- *  - search (partial match on name/description)
- */
 export const listEvents = async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
   const pageNum = Number(page) || 1;
   const limitNum = Number(limit) || 10;
 
-  // Basic pagination calculation
   const skip = (pageNum - 1) * limitNum;
   const take = limitNum;
 
-  // Optional text search
   let whereClause = {};
   if (search) {
     whereClause = {
@@ -68,7 +60,6 @@ export const createEvent = async (req, res) => {
       });
     }
 
-    // Validate date fields
     if (startTime && isNaN(Date.parse(startTime))) {
       return res.status(400).json({
         success: false,
@@ -157,7 +148,6 @@ export const updateEvent = async (req, res) => {
 
   const { name, description, slots, startTime, endTime, isPublic } = req.body;
 
-  // Validate date fields
   if (startTime && isNaN(Date.parse(startTime))) {
     return res.status(400).json({
       success: false,
@@ -302,6 +292,56 @@ export const facultyEvents = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve faculty events.',
+    });
+  }
+};
+
+export const assignEventRoles = async (req, res) => {
+  const { userId, roleIds } = req.body; // roleIds: array of EventRole IDs
+  const eventId = parseInt(req.params.id, 10);
+
+  if (isNaN(eventId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid event ID provided.',
+    });
+  }
+
+  if (!userId || !Array.isArray(roleIds)) {
+    return res.status(400).json({
+      success: false,
+      message: 'userId and roleIds (array) are required.',
+    });
+  }
+
+  try {
+    // Delete existing event roles for the user and event
+    await prisma.eventRoleAssignment.deleteMany({
+      where: {
+        userId,
+        eventId,
+      },
+    });
+
+    // Assign new event roles
+    const assignments = roleIds.map((roleId) => ({
+      userId,
+      eventId,
+      roleId,
+    }));
+
+    await prisma.eventRoleAssignment.createMany({
+      data: assignments,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Event roles assigned successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to assign event roles.',
     });
   }
 };

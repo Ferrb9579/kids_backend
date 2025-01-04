@@ -94,7 +94,6 @@ export const updateEventRegistration = async (req, res) => {
   const { status } = req.body;
 
   try {
-    // Check if current user is faculty or the event creator
     const currentReg = await prisma.eventRegistration.findUnique({
       where: { id },
       include: { event: true },
@@ -106,7 +105,6 @@ export const updateEventRegistration = async (req, res) => {
       });
     }
 
-    // Example permission check
     if (
       req.user?.role !== 'faculty' &&
       req.user?.id !== currentReg.event.createdById

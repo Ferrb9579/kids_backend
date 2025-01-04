@@ -8,7 +8,8 @@ import {
   deleteUser,
   userEvents,
   userAttendance,
-  facultyList
+  facultyList,
+  assignUserRoles
 } from '../controllers/user.controller.js';
 import {
   externalAuthValidator,
@@ -18,6 +19,8 @@ import {
 } from '../validators/user.validators.js';
 import { validateFields } from '../middlewares/validateFields.js';
 import { authenticateToken } from '../middlewares/auth.js';
+import { authorize } from '../middlewares/authorize.js';
+import { MANAGE_USERS, MANAGE_USER_ROLES, VIEW_EVENTS } from '../permissions.js';
 
 const router = express.Router();
 
@@ -25,16 +28,19 @@ const router = express.Router();
 router.post('/external-auth', externalAuthValidator, validateFields, externalAuth);
 
 // Authenticated routes
-router.get('/', authenticateToken, usernameQueryValidator, validateFields, listUsers);
-router.get('/faculty', authenticateToken, facultyList);
+router.get('/', authenticateToken, authorize(VIEW_EVENTS), usernameQueryValidator, validateFields, listUsers);
+router.get('/faculty', authenticateToken, authorize(VIEW_EVENTS), facultyList);
 
 // Routes with :id parameter
-router.get('/:id', authenticateToken, userIdParamValidator, validateFields, getUser);
-router.patch('/:id', authenticateToken, userIdParamValidator, updateUserValidator, validateFields, updateUser);
-router.delete('/:id', authenticateToken, userIdParamValidator, validateFields, deleteUser);
+router.get('/:id', authenticateToken, authorize(VIEW_EVENTS), userIdParamValidator, validateFields, getUser);
+router.patch('/:id', authenticateToken, authorize(MANAGE_USERS), userIdParamValidator, updateUserValidator, validateFields, updateUser);
+router.delete('/:id', authenticateToken, authorize(MANAGE_USERS), userIdParamValidator, validateFields, deleteUser);
 
 // Nested routes
-router.get('/:id/events', authenticateToken, userIdParamValidator, validateFields, userEvents);
-router.get('/:id/attendance', authenticateToken, userIdParamValidator, validateFields, userAttendance);
+router.get('/:id/events', authenticateToken, authorize(VIEW_EVENTS), userIdParamValidator, validateFields, userEvents);
+router.get('/:id/attendance', authenticateToken, authorize(VIEW_EVENTS), userIdParamValidator, validateFields, userAttendance);
+
+// Assign user roles
+// router.post('/:id/assign-roles', authenticateToken, authorize(MANAGE_USER_ROLES), assignUserRoles);
 
 export default router;

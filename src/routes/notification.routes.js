@@ -4,7 +4,8 @@ import { sendNotification } from '../controllers/notification.controller.js';
 import { sendNotificationValidator } from '../validators/notification.validators.js';
 import { validateFields } from '../middlewares/validateFields.js';
 import { authenticateToken } from '../middlewares/auth.js';
-import { isFaculty } from '../middlewares/isFaculty.js'; // if restricted
+import { authorize } from '../middlewares/authorize.js';
+import { SEND_NOTIFICATIONS } from '../permissions.js';
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const router = express.Router();
 router.post(
   '/send',
   authenticateToken,
-  isFaculty, // If only faculty can send notifications
+  authorize(SEND_NOTIFICATIONS),
   sendNotificationValidator,
   validateFields,
   sendNotification

@@ -1,5 +1,5 @@
+// src/controllers/attendanceSession.controller.js
 import prisma from '../prisma.js';
-// Replaced parseISO usage with new Date(...) plus validation.
 
 export const listAttendanceSessions = async (req, res) => {
   try {
@@ -29,7 +29,6 @@ export const createAttendanceSession = async (req, res) => {
       });
     }
 
-    // Validate sessionDate
     if (sessionDate && isNaN(Date.parse(sessionDate))) {
       return res.status(400).json({
         success: false,
@@ -100,7 +99,7 @@ export const updateAttendanceSession = async (req, res) => {
   }
 
   const { eventId, sessionDate } = req.body;
-  // Validate sessionDate
+
   if (sessionDate && isNaN(Date.parse(sessionDate))) {
     return res.status(400).json({
       success: false,
@@ -209,7 +208,7 @@ export const markBulkAttendance = async (req, res) => {
     const createdRecords = [];
     for (let att of attendance_data) {
       const { userId, status, location } = att;
-      if (!userId) continue; // skip if userId not provided
+      if (!userId) continue;
 
       try {
         const newAtt = await prisma.attendance.create({
@@ -222,7 +221,7 @@ export const markBulkAttendance = async (req, res) => {
         });
         createdRecords.push(newAtt);
       } catch (e) {
-        // Skip or handle duplicates, etc.
+        // Handle duplicates or other errors if necessary
       }
     }
 

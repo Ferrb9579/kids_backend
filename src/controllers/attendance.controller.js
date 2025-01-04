@@ -1,7 +1,7 @@
+// src/controllers/attendance.controller.js
 import prisma from '../prisma.js';
 
 export const listAttendance = async (req, res) => {
-  // Pagination & filtering
   const { page = 1, limit = 10, userId, status } = req.query;
   const pageNum = Number(page) || 1;
   const limitNum = Number(limit) || 10;
@@ -11,7 +11,6 @@ export const listAttendance = async (req, res) => {
 
   const whereClause = {};
 
-  // Optional filter by userId
   if (userId) {
     const parsedId = parseInt(userId, 10);
     if (!isNaN(parsedId)) {
@@ -19,7 +18,6 @@ export const listAttendance = async (req, res) => {
     }
   }
 
-  // Optional filter by status
   if (status) {
     whereClause.status = status;
   }
