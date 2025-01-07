@@ -15,7 +15,6 @@ model User {
   role            String        @default("student")
   userRoleBitmask Int           @default(0) // Bitmask for user roles
   createdAt       DateTime      @default(now())
-
   // Relations
   createdEvents      Event[]
   eventRegistrations  EventRegistration[]

@@ -2,7 +2,8 @@
 export const authorize = (requiredPermission, roleType = 'user') => {
     return (req, res, next) => {
         let userBitmask = 0;
-
+        console.log('req.userRoles', req.userRoles);
+        console.log('req.eventRoles:', req.eventRoles);
         if (roleType === 'user') {
             // Aggregate all user role bitmasks assigned to the user
             userBitmask = req.userRoles.reduce((acc, role) => acc | role.bitmask, 0);

@@ -24,6 +24,7 @@ export const authenticateToken = async (req, res, next) => {
       include: { role: true },
     });
     req.userRoles = userRoles.map((ura) => ura.role);
+    console.log('token req.userRoles:', req.userRoles);
 
     next();
   } catch (err) {
